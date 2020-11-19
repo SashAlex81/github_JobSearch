@@ -1,0 +1,309 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Список вакансий</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+    <h2>Поиск</h2>
+    <hr>
+    <form name="searchForm">
+        <div class="form-group col-md-5">
+            <label for="header">Заголовок:</label>
+            <input class="form-control" name="header" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="salary">Оклад:</label>
+            <div class="form-inline">
+                <label>от:</label>
+                <input class="form-control" name="salaryFrom" type="number" />
+                <label>до:</label>
+                <input class="form-control" name="salaryTo" type="number" />
+            </div>
+        </div>
+        <div class="panel-body">
+            <button type="submit" id="search" class="btn btn-primary">Поиск</button>
+        </div>
+    </form>
+    <hr>
+    <h2>Список вакансий</h2>
+    <table id="vacncyList" class="table table-condensed table-striped  col-md-6">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Заголовок</th>
+                <th>Оклад</th>
+                <th>Организация</th>
+                <th>Контактное лицо</th>
+                <th>Телефон</th>
+                <th>Тип занятости</th>
+                <th>Описание</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="vacancyBody">
+        </tbody>
+    </table>
+    <hr>
+    <h2>Редактирование вакансии</h2>
+    <hr>
+    <form name="vacancyForm">
+        <input type="hidden" name="id" value="0" />
+        <div class="form-group col-md-5">
+            <label for="header">Заголовок:</label>
+            <input class="form-control" name="header" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="salary">Оклад:</label>
+            <input class="form-control" name="salary" type="number" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="header">Организация:</label>
+            <input class="form-control" name="organization" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="header">Контактное лицо:</label>
+            <input class="form-control" name="contactPerson" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="header">Телефон:</label>
+            <input class="form-control" name="phone" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="header">Тип занятости:</label>
+            <input class="form-control" name="typeOfEmployment" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="header">Описание:</label>
+            <input class="form-control" name="description" />
+        </div>
+        <div class="panel-body">
+            <button type="submit" id="submit" class="btn btn-primary">Сохранить</button>
+            <a id="reset" class="btn btn-primary">Сбросить</a>
+        </div>
+    </form>
+    <hr>
+    <script>
+        // Получение всех вакансий или по параметрам фильтрации (header, salaryFrom, SalaryTo)
+        async function GetVacancies(header, salaryFrom, salaryTo) {
+            // отправляем запрос и получаем ответ
+            let params = new URLSearchParams({
+                header: header || "",
+                salaryFrom: salaryFrom || "",
+                salaryTo: salaryTo || ""
+            });
+            const response = await fetch("/api/vacancies?" + params.toString(), {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            // если запрос прошел нормально
+            if (response.ok === true) {
+                let existingRows = document.querySelectorAll("#vacancyBody>tr");
+                existingRows.forEach(r => {
+                    r.remove();
+                });
+
+                // получаем данные
+                const vacancies = await response.json();
+                let rows = document.querySelector("tbody");
+                vacancies.forEach(vacancy => {
+                    // добавляем полученные элементы в таблицу
+                    rows.append(row(vacancy));
+                });
+            }
+        }
+        // Получение одной вакансии
+        async function GetVacancy(id) {
+            const response = await fetch("/api/vacancies/" + id, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const vacancy = await response.json();
+                const form = document.forms["vacancyForm"];
+                form.elements["id"].value = vacancy.id;
+                form.elements["header"].value = vacancy.header;
+                form.elements["salary"].value = vacancy.salary;
+                form.elements["organization"].value = vacancy.organization;
+                form.elements["contactPerson"].value = vacancy.contactPerson;
+                form.elements["phone"].value = vacancy.phone;
+                form.elements["typeOfEmployment"].value = vacancy.typeOfEmployment;
+                form.elements["description"].value = vacancy.description;
+            }
+        }
+        // Добавление вакансии
+        async function CreateVacancy(vacancyHeader, vacancySalary, vacancyOrganization, vacancyContactPerson, vacancyPhone, vacancyTypeOfEmployment, vacancyDescription) {
+
+            const response = await fetch("api/vacancies", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    header: vacancyHeader,
+                    salary: parseInt(vacancySalary, 10),
+                    organization: vacancyOrganization,
+                    contactPerson: vacancyContactPerson,
+                    phone: vacancyPhone,
+                    typeOfEmployment: vacancyTypeOfEmployment,
+                    description: vacancyDescription
+                })
+            });
+            if (response.ok === true) {
+                const vacancy = await response.json();
+                reset();
+                document.querySelector("tbody").append(row(vacancy));
+            }
+        }
+
+        // Изменение вакансии
+        async function EditVacancy(vacancyId, vacancyHeader, vacancySalary, vacancyOrganization, vacancyContactPerson, vacancyPhone, vacancyTypeOfEmployment, vacancyDescription) {
+            const response = await fetch("api/vacancies", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: parseInt(vacancyId, 10),
+                    header: vacancyHeader,
+                    salary: parseInt(vacancySalary, 10),
+                    organization: vacancyOrganization,
+                    contactPerson: vacancyContactPerson,
+                    phone: vacancyPhone,
+                    typeOfEmployment: vacancyTypeOfEmployment,
+                    description: vacancyDescription
+                })
+            });
+            if (response.ok === true) {
+                const vacancy = await response.json();
+                reset();
+                document.querySelector("tr[data-rowid='" + vacancy.id + "']").replaceWith(row(vacancy));
+            }
+        }
+        // Удаление вакансии
+        async function DeleteVacancy(id) {
+            const response = await fetch("/api/vacancies/" + id, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const vacancy = await response.json();
+                document.querySelector("tr[data-rowid='" + vacancy.id + "']").remove();
+            }
+        }
+
+        // сброс формы
+        function reset() {
+            const form = document.forms["vacancyForm"];
+            form.reset();
+            form.elements["id"].value = 0;
+        }
+
+        // создание строки для таблицы
+        function row(vacancy) {
+
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-rowid", vacancy.id);
+
+            const idTd = document.createElement("td");
+            idTd.append(vacancy.id);
+            tr.append(idTd);
+
+            const headerTd = document.createElement("td");
+            headerTd.append(vacancy.header);
+            tr.append(headerTd);
+
+            const salaryTd = document.createElement("td");
+            salaryTd.append(vacancy.salary);
+            tr.append(salaryTd);
+
+            const organizationTd = document.createElement("td");
+            organizationTd.append(vacancy.organization);
+            tr.append(organizationTd);
+
+            const contactPersonTd = document.createElement("td");
+            contactPersonTd.append(vacancy.contactPerson);
+            tr.append(contactPersonTd);
+
+            const phoneTd = document.createElement("td");
+            phoneTd.append(vacancy.phone);
+            tr.append(phoneTd);
+
+            const typeOfEmploymentTd = document.createElement("td");
+            typeOfEmploymentTd.append(vacancy.typeOfEmployment);
+            tr.append(typeOfEmploymentTd);
+
+            const descriptionTd = document.createElement("td");
+            descriptionTd.append(vacancy.description);
+            tr.append(descriptionTd);
+
+            const linksTd = document.createElement("td");
+
+            const editLink = document.createElement("a");
+            editLink.setAttribute("data-id", vacancy.id);
+            editLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            editLink.append("Изменить");
+            editLink.addEventListener("click", e => {
+
+                e.preventDefault();
+                GetVacancy(vacancy.id);
+            });
+            linksTd.append(editLink);
+
+            const removeLink = document.createElement("a");
+            removeLink.setAttribute("data-id", vacancy.id);
+            removeLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            removeLink.append("Удалить");
+            removeLink.addEventListener("click", e => {
+
+                e.preventDefault();
+                DeleteVacancy(vacancy.id);
+            });
+
+            linksTd.append(removeLink);
+            tr.appendChild(linksTd);
+
+            return tr;
+        }
+        // сброс значений формы
+        document.getElementById("reset").click(function (e) {
+
+            e.preventDefault();
+            reset();
+        })
+
+        // отправка формы
+        document.forms["vacancyForm"].addEventListener("submit", e => {
+            e.preventDefault();
+            const form = document.forms["vacancyForm"];
+            const id = form.elements["id"].value;
+            const header = form.elements["header"].value;
+            const salary = form.elements["salary"].value;
+            const organization = form.elements["organization"].value;
+            const contactPerson = form.elements["contactPerson"].value;
+            const phone = form.elements["phone"].value;
+            const typeOfEmployment = form.elements["typeOfEmployment"].value;
+            const description = form.elements["description"].value;
+
+            if (id == 0)
+                CreateVacancy(header, salary, organization, contactPerson, phone, typeOfEmployment, description);
+            else
+                EditVacancy(id, header, salary, organization, contactPerson, phone, typeOfEmployment, description);
+        });
+
+        // отправка формы
+        document.forms["searchForm"].addEventListener("submit", e => {
+            e.preventDefault();
+            const form = document.forms["searchForm"];
+            const header = form.elements["header"].value;
+            const salaryFrom = form.elements["salaryFrom"].value;
+            const salaryTo = form.elements["salaryTo"].value;
+
+            // загрузка вакансий по фильтрации
+            GetVacancies(header, salaryFrom, salaryTo);
+        });
+
+        // загрузка вакансий
+        GetVacancies();
+
+    </script>
+</body>
+</html>
